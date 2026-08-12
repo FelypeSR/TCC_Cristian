@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Dados e resultados vivem no Google Drive, nunca no repositório.
+# Mensagens de smishing podem conter dados pessoais (LGPD, seção 4.4.2).
+data/
+results/
+*.csv
+!examples/*.csv
+
+# Modelos treinados
+*.bin
+*.safetensors
+*.pt
+
+# Sistema
+.DS_Store

@@ -1,0 +1,40 @@
+# Dependências do projeto — instaladas no topo de CADA notebook.
+# No Colab, cada notebook roda em um runtime independente: instalar em um
+# notebook não vale para os outros.
+#
+# IMPORTANTE: depois da primeira execução bem-sucedida de ponta a ponta,
+# rode `pip freeze` e substitua os intervalos abaixo pelas versões exatas.
+# Sem pinagem, o experimento não é replicável — e a reprodutibilidade é o
+# argumento que justifica a troca de GPT por Llama (seção 4.3.3 da monografia).
+
+# --- Dados e modelagem clássica ---
+scikit-learn>=1.3
+pandas>=2.0
+numpy>=1.24
+
+# --- Pré-processamento textual (seções 4.3.2.1 e 4.3.2.2) ---
+nltk>=3.8
+spacy>=3.7
+# O modelo de português é baixado à parte, a cada runtime:
+#   !python -m spacy download pt_core_news_sm -q
+
+# --- Fontes de dados ---
+ucimlrepo>=0.0.7
+
+# --- Transformers (BERTimbau e Llama) ---
+transformers>=4.41        # eval_strategy; em versões anteriores era evaluation_strategy
+datasets>=2.14
+accelerate>=0.26
+bitsandbytes>=0.43        # quantização 4-bit do Llama
+sentencepiece
+protobuf
+
+# --- Visualização ---
+matplotlib>=3.7
+seaborn>=0.13
+
+# --- Estatística (teste de McNemar) ---
+statsmodels>=0.14
+
+# --- Utilidades ---
+tqdm
