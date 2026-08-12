@@ -259,7 +259,7 @@ Conforme as seções 4.3.2.1 e 4.3.2.2, usando NLTK e spaCy:
 
 **SVM:** `LinearSVC` com `class_weight='balanced'`. Para obter probabilidades (necessárias para AUC e para a calibração de limiar), envolver em `CalibratedClassifierCV` com `method='sigmoid'` — a calibração isotônica superajusta em corpus pequeno e degrada tanto as probabilidades quanto as predições.
 
-**Interpretabilidade:** ao listar os termos mais discriminativos, atenção — no `ComplementNB`, `feature_log_prob_` guarda os pesos do **complemento** da classe e a regra de decisão escolhe o *menor* somatório. Ordenar decrescente e chamar de "termos da classe" produz a lista **invertida**. Ou inverta a ordenação, ou use um `MultinomialNB` auxiliar só para essa análise.
+**Interpretabilidade:** ao listar os termos mais discriminativos, a ordenação correta no `ComplementNB` é a **decrescente**, igual à do `MultinomialNB`. O nome `feature_log_prob_` sugere pesos do complemento e induz a inverter a ordem, mas na implementação do sklearn, com o padrão `norm=False`, o atributo guarda o *negativo* do log das frequências do complemento e a predição é feita por `argmax` — peso alto significa termo mais associado à classe. O notebook 02 inclui uma célula que confirma isso comparando com o `MultinomialNB` num corpus controlado; rode-a antes de mexer na ordenação.
 
 **Saída:** dois arquivos separados, `results/predictions/naive_bayes.csv` e `results/predictions/svm.csv`.
 
