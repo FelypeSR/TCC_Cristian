@@ -166,6 +166,10 @@ MODELOS = {
 
 > A coluna `id_semente` não é opcional. É ela que impede que variações da mesma mensagem original caiam em lados opostos do split — o vazamento mais provável e mais destrutivo deste projeto (ver [Regra de split](#regra-de-split-e-vazamento)).
 
+> **O `id_semente` é derivado do conteúdo da mensagem**, via `preprocessing.id_mensagem()` — um hash da forma normalizada, no formato `msg_<12 hex>`. Não pode ser posicional (`semente_3`): o notebook 00 lê as sementes de `sementes_pt.csv` e o 01 lê o corpus de `bortot.csv` / `certbr.csv`, então dois ids baseados em posição jamais coincidem para a mesma mensagem, e o filtro anti-vazamento descarta a augmentation inteira sem acusar erro. Como o hash é calculado sobre a forma normalizada, a mesma mensagem se reconhece entre as duas fontes mesmo com diferença de espaçamento, pontuação ou caixa.
+>
+> Consequência prática: **as sementes precisam sair das mesmas fontes PT-BR carregadas no notebook 01.** Se saírem de outro lugar, nenhum `id_semente` casa com o corpus e o notebook 01 para com `AssertionError` — de propósito, para que o custo do notebook 00 (GPU mais revisão manual) não seja perdido em silêncio.
+
 ---
 
 ### `01_dados.ipynb` — Coleta, Rotulagem e Splits (CPU)

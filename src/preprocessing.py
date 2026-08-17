@@ -21,6 +21,7 @@ antes de número. Caso contrário o padrão de número consome os dígitos que
 o padrão de telefone precisaria ver.
 """
 
+import hashlib
 import re
 import unicodedata
 
@@ -306,3 +307,25 @@ def chave_dedup(texto):
     sobrepõem, a comparação precisa ser sobre a forma normalizada.
     """
     return normalizar(texto).replace(' ', '')
+
+
+def id_mensagem(texto):
+    """Identidade de uma mensagem, derivada do próprio conteúdo.
+
+    Usada para ligar uma mensagem sintética à mensagem real que a originou
+    (`id_semente`), através de notebooks e arquivos diferentes.
+
+    Precisa ser derivada do CONTEÚDO, não da posição na planilha. Um id
+    posicional (`semente_3`, `bortot_3`) depende da ordem das linhas e do
+    arquivo em que a mensagem foi lida: o notebook 00 lê as sementes de um
+    CSV e o notebook 01 lê o corpus de outro, então dois ids posicionais
+    para a mesma mensagem nunca coincidem — e o filtro anti-vazamento passa
+    a descartar toda a augmentation sem que nada acuse o erro.
+
+    Sobre `chave_dedup`, e não sobre o texto cru: assim a identidade
+    sobrevive a diferenças de espaçamento, pontuação e caixa entre as cópias
+    da mesma mensagem em fontes distintas — a mesma tolerância que a
+    deduplicação já assume.
+    """
+    chave = chave_dedup(texto).encode('utf-8')
+    return 'msg_' + hashlib.sha1(chave).hexdigest()[:12]

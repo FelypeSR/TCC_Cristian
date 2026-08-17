@@ -115,7 +115,14 @@ sementes = pd.read_csv(CAMINHO_SEMENTES, encoding='utf-8')
 # sintéticas é arriscado: o modelo tende a produzir textos genéricos e
 # artificiais, e o classificador aprenderia a separar estilo, não conteúdo.
 sementes = sementes[sementes[CFG.COL_ROTULO] == CFG.CLASSE_POSITIVA].reset_index(drop=True)
-sementes['id_semente'] = [f'semente_{i}' for i in range(len(sementes))]
+
+# O id da semente vem do CONTEÚDO da mensagem, não da posição na planilha.
+# É esse id que o notebook 01 usa para saber de qual mensagem real cada
+# variação nasceu. Um id posicional não sobrevive à travessia entre os dois
+# notebooks — eles leem arquivos diferentes — e o filtro anti-vazamento
+# acabaria descartando a augmentation inteira em silêncio.
+import preprocessing as pp
+sementes['id_semente'] = sementes[CFG.COL_TEXTO].apply(pp.id_mensagem)
 
 print(f'Sementes de smishing: {len(sementes)}')
 print(sementes['tipo_golpe'].value_counts().to_string())
@@ -515,12 +522,36 @@ if os.path.isfile(CFG.SINTETICAS):
     # Filtro 1 — uma variação só entra se a semente dela estiver no TREINO.
     # Se a semente caiu em val ou teste, a variação vaza informação do
     # conjunto de avaliação.
-    sementes_treino = set(treino['id']) | set(treino['id_semente'])
+    #
+    # A comparação é feita por `pp.id_mensagem`, derivado do conteúdo: o
+    # notebook 00 lê as sementes de sementes_pt.csv e este lê o corpus de
+    # bortot.csv / certbr.csv, então não existe id posicional comum aos dois.
+    # Ligar pelo conteúdo é o que faz semente e mensagem real se reconhecerem
+    # mesmo vindo de arquivos diferentes.
+    hashes_treino = set(treino[CFG.COL_TEXTO].apply(pp.id_mensagem))
     antes = len(sinteticas)
-    sinteticas = sinteticas[
-        sinteticas['id_semente'].isin(sementes_treino) | (sinteticas['id_semente'] == '')
-    ]
-    print(f'[INFO] {antes - len(sinteticas)} descartadas — semente fora do treino')
+
+    # Sintética sem proveniência é descartada: sem saber de que semente veio,
+    # não há como afirmar que ela não deriva de uma mensagem de val ou teste.
+    sem_proveniencia = int((sinteticas['id_semente'].astype(str).str.strip() == '').sum())
+    if sem_proveniencia:
+        print(f'[AVISO] {sem_proveniencia} sintéticas sem id_semente — descartadas')
+
+    sinteticas = sinteticas[sinteticas['id_semente'].isin(hashes_treino)]
+    descartadas = antes - len(sinteticas)
+    print(f'[INFO] {descartadas} descartadas — semente fora do treino')
+
+    # Descarte total é sintoma de sementes que não vieram do mesmo corpus,
+    # não de um split rigoroso. Sem esta trava o notebook 00 inteiro — GPU
+    # mais revisão manual — seria perdido sem nenhum sinal de erro.
+    if antes and not len(sinteticas):
+        raise AssertionError(
+            f'Todas as {antes} sintéticas foram descartadas no filtro de semente.\\n'
+            'Sintoma típico: as sementes de sementes_pt.csv não são as mesmas '
+            'mensagens carregadas em FONTES_PT, então nenhum id_semente casa '
+            'com o corpus real. Confira se o notebook 00 partiu das mesmas '
+            'fontes PT-BR usadas aqui.'
+        )
 
     # Filtro 2 — o modelo gerador pode ter produzido, por acaso, uma mensagem
     # quase idêntica a uma de val ou teste, mesmo partindo de semente do
