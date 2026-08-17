@@ -71,11 +71,11 @@ Célula padrão no topo de todos os notebooks:
 
 ```python
 # 1. Clona/atualiza o código do repositório
-!git clone -q https://github.com/<usuario>/tcc-smishing.git /content/tcc-smishing \
-    2>/dev/null || (cd /content/tcc-smishing && git pull -q)
+!git clone -q https://github.com/FelypeSR/TCC_Cristian.git /content/TCC_Cristian \
+    2>/dev/null || (cd /content/TCC_Cristian && git pull -q)
 
 # 2. Instala as dependências com versões fixas
-!pip install -q -r /content/tcc-smishing/requirements.txt
+!pip install -q -r /content/TCC_Cristian/requirements.txt
 
 # 3. Monta o Drive (dados e resultados)
 from google.colab import drive
@@ -83,7 +83,7 @@ drive.mount('/content/drive')
 
 # 4. Importa a configuração compartilhada
 import sys
-sys.path.insert(0, '/content/tcc-smishing/src')
+sys.path.insert(0, '/content/TCC_Cristian/src')
 import config as CFG
 ```
 

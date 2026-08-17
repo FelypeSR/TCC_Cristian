@@ -40,16 +40,16 @@ SETUP = """
 # em um notebook não vale para os outros. Por isso esta célula se repete em
 # todos, e não existe um "notebook de instalação".
 
-REPO = 'https://github.com/SEU-USUARIO/tcc-smishing.git'   # ← ajuste aqui
+REPO = 'https://github.com/FelypeSR/TCC_Cristian.git'   # ← ajuste aqui
 
-!git clone -q {REPO} /content/tcc-smishing 2>/dev/null || (cd /content/tcc-smishing && git pull -q)
-!pip install -q -r /content/tcc-smishing/requirements.txt
+!git clone -q {REPO} /content/TCC_Cristian 2>/dev/null || (cd /content/TCC_Cristian && git pull -q)
+!pip install -q -r /content/TCC_Cristian/requirements.txt
 
 from google.colab import drive
 drive.mount('/content/drive')
 
 import sys
-sys.path.insert(0, '/content/tcc-smishing/src')
+sys.path.insert(0, '/content/TCC_Cristian/src')
 
 import config as CFG
 CFG.fixar_seeds()
