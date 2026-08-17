@@ -140,6 +140,12 @@ def resposta_esperada(criterios):
 
 _NUMEROS = re.compile(r'\d+')
 
+# "3 critérios", "2 criterios presentes" — a CONTAGEM de critérios, não um id.
+# Sem remover isso antes de varrer os dígitos, a resposta "a mensagem tem 3
+# critérios: 1, 2" seria lida como {1, 2, 3}: a contagem entraria na lista e
+# inflaria a pontuação de risco.
+_CONTAGEM = re.compile(r'\d+\s*crit[eé]rios?', re.IGNORECASE)
+
 
 def parse_resposta(bruta):
     """Extrai os critérios marcados da resposta do modelo.
@@ -147,6 +153,19 @@ def parse_resposta(bruta):
     Devolve (criterios, valida):
       - criterios: lista de ids reconhecidos
       - valida   : False quando o modelo não seguiu o formato
+
+    Um modelo de 3B ignora a instrução de formato com alguma frequência, e
+    cada modo de desvio erra para um lado diferente:
+
+      "a mensagem tem 3 critérios: 1, 2"   → a contagem viraria critério
+      "nenhum dos 7 critérios"             → o 7 viraria critério
+      "nenhum critério, exceto o 2 e o 3"  → a negação engoliria a lista
+
+    Os dois primeiros são recuperáveis descartando a contagem ("N critérios")
+    antes de varrer os dígitos e, havendo dois-pontos, lendo só o que vem
+    depois deles. O terceiro não é: uma negação que sobrevive à limpeza e
+    ainda convive com números é genuinamente ambígua, e adivinhar ali trocaria
+    um erro visível por um invisível. Esse caso vira abstenção.
 
     Quem decide o que fazer com uma resposta inválida é o notebook. A
     recomendação é contá-la como abstenção e reportar a taxa — e, se for
@@ -160,13 +179,28 @@ def parse_resposta(bruta):
     if not texto:
         return [], False
 
-    if 'nenhum' in texto:
-        return [], True
+    nega = 'nenhum' in texto
 
-    encontrados = [int(n) for n in _NUMEROS.findall(texto)]
+    # A contagem sai antes de qualquer varredura de dígitos
+    segmento = _CONTAGEM.sub(' ', texto)
+
+    # Havendo dois-pontos, a lista está depois deles: em "critérios
+    # presentes: 1, 2" tudo que interessa vem à direita.
+    if ':' in segmento:
+        segmento = segmento.rsplit(':', 1)[1]
+
+    encontrados = [int(n) for n in _NUMEROS.findall(segmento)]
     validos = sorted({n for n in encontrados if n in CRITERIOS_POR_ID})
 
-    # Números fora da faixa 1–7 indicam que o modelo respondeu outra coisa
+    # Negação junto com números: indistinguível entre "nenhum, exceto o 2" e
+    # "nenhum dos 7". Abstenção é a leitura honesta.
+    if nega and validos:
+        return [], False
+
+    if nega:
+        return [], True
+
+    # Sem negação e sem número válido, o modelo respondeu outra coisa
     return validos, bool(validos)
 
 

@@ -1386,15 +1386,48 @@ for i, linha in candidatos.iterrows():
 """),
 code("""
 # ── Preencha: índice do candidato → lista de critérios presentes ───────────
-# Mensagens legítimas normalmente ficam com lista vazia.
-ANOTACOES = {
-    0: [1, 2, 3],     # ← ajuste conforme as mensagens exibidas acima
-    1: [1, 3, 6],
-    2: [2, 4, 3],
-    3: [],
-    4: [],
-    5: [],
-}
+# Registre os critérios REALMENTE presentes em cada mensagem exibida acima,
+# no formato {índice: [ids dos critérios]}. Mensagem legítima costuma ficar
+# com lista vazia. Deixar o dicionário vazio interrompe a execução logo abaixo.
+#
+# Modelo (apague e substitua pelos seus valores):
+#     ANOTACOES = {0: [1, 2, 3], 1: [1, 3, 6], 2: [2, 4], 3: [], 4: [], 5: []}
+ANOTACOES = {}
+
+# ── Verificação da anotação ───────────────────────────────────────────────
+# Estes exemplos são o few-shot: o que estiver aqui é o padrão que o modelo
+# vai imitar em todo o conjunto de teste. Uma anotação inventada não quebra
+# nada — ela apenas ensina a rubrica errada, e o efeito aparece diluído nas
+# métricas finais, onde ninguém consegue mais atribuí-lo à causa. Por isso a
+# execução para aqui, como a revisão manual do notebook 00 também para.
+if not ANOTACOES:
+    raise ValueError(
+        'ANOTACOES está vazio — a anotação manual dos exemplos few-shot ainda '
+        'não foi feita.\\nLeia as mensagens impressas na célula acima e registre, '
+        'para cada índice, os critérios presentes.'
+    )
+
+faltando = [i for i in candidatos.index if i not in ANOTACOES]
+if faltando:
+    raise ValueError(f'Índices sem anotação: {faltando}')
+
+for indice, criterios in ANOTACOES.items():
+    invalidos = [c for c in criterios if c not in R.CRITERIOS_POR_ID]
+    if invalidos:
+        raise ValueError(
+            f'Índice {indice}: critérios inexistentes {invalidos}. '
+            f'Válidos: 1 a {R.N_CRITERIOS}.'
+        )
+
+# Coerência entre a anotação e o rótulo — não bloqueia, mas avisa: uma
+# mensagem de golpe sem nenhum critério, ou uma legítima com vários, costuma
+# ser engano de digitação de índice.
+for indice, criterios in ANOTACOES.items():
+    rotulo = candidatos.loc[indice, CFG.COL_ROTULO]
+    if rotulo == CFG.CLASSE_POSITIVA and not criterios:
+        print(f'[AVISO] índice {indice} é {CFG.CLASSE_POSITIVA} e não tem critério algum')
+    if rotulo == CFG.CLASSE_NEGATIVA and len(criterios) >= 3:
+        print(f'[AVISO] índice {indice} é {CFG.CLASSE_NEGATIVA} e tem {len(criterios)} critérios')
 
 exemplos = candidatos.copy()
 exemplos['criterios'] = exemplos.index.map(ANOTACOES)
