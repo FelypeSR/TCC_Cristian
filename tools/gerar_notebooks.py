@@ -8,7 +8,13 @@ DESTINO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 
 def md(texto):
-    return {"cell_type": "markdown", "metadata": {}, "source": texto.strip("\n").split("\n")}
+    # Cada item de `source` precisa TERMINAR com "\n" (menos o último). Sem isso
+    # o Jupyter/Colab concatena as linhas numa só e o markdown não renderiza:
+    # títulos, listas e blocos de citação viram texto corrido. Mesma regra de
+    # `code()` logo abaixo.
+    linhas = texto.strip("\n").split("\n")
+    return {"cell_type": "markdown", "metadata": {},
+            "source": [l + "\n" for l in linhas[:-1]] + [linhas[-1]]}
 
 
 def code(texto):
