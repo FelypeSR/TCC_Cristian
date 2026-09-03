@@ -156,7 +156,7 @@ MODELOS = {
 **Respaldo na metodologia:** a seção 4.4.2 prevê "mensagens fraudulentas reais (quando possível) **ou simuladas com base em evidências**", com rotulagem manual.
 
 **Pipeline:**
-1. Carrega as mensagens-semente reais da curadoria PT-BR (Bortot et al., CERT.br/GOV.BR)
+1. Carrega as mensagens-semente do corpus PT-BR (`sementes_pt.csv` — as mesmas mensagens de `FONTES_PT`, filtradas em `smishing`)
 2. Gera variações controladas por prompt, preservando o tipo de golpe da semente
 3. Registra a proveniência: cada mensagem gerada carrega `id_semente` e `tipo_golpe`
 4. **Validação manual obrigatória** — revisar mensagem a mensagem, descartar as implausíveis, confirmar o rótulo
@@ -166,7 +166,7 @@ MODELOS = {
 
 > A coluna `id_semente` não é opcional. É ela que impede que variações da mesma mensagem original caiam em lados opostos do split — o vazamento mais provável e mais destrutivo deste projeto (ver [Regra de split](#regra-de-split-e-vazamento)).
 
-> **O `id_semente` é derivado do conteúdo da mensagem**, via `preprocessing.id_mensagem()` — um hash da forma normalizada, no formato `msg_<12 hex>`. Não pode ser posicional (`semente_3`): o notebook 00 lê as sementes de `sementes_pt.csv` e o 01 lê o corpus de `bortot.csv` / `certbr.csv`, então dois ids baseados em posição jamais coincidem para a mesma mensagem, e o filtro anti-vazamento descarta a augmentation inteira sem acusar erro. Como o hash é calculado sobre a forma normalizada, a mesma mensagem se reconhece entre as duas fontes mesmo com diferença de espaçamento, pontuação ou caixa.
+> **O `id_semente` é derivado do conteúdo da mensagem**, via `preprocessing.id_mensagem()` — um hash da forma normalizada, no formato `msg_<12 hex>`. Não pode ser posicional (`semente_3`): o notebook 00 lê as sementes de `sementes_pt.csv` e o 01 lê o corpus dos arquivos de `FONTES_PT`, então dois ids baseados em posição jamais coincidem para a mesma mensagem, e o filtro anti-vazamento descarta a augmentation inteira sem acusar erro. Como o hash é calculado sobre a forma normalizada, a mesma mensagem se reconhece entre as duas fontes mesmo com diferença de espaçamento, pontuação ou caixa.
 >
 > Consequência prática: **as sementes precisam sair das mesmas fontes PT-BR carregadas no notebook 01.** Se saírem de outro lugar, nenhum `id_semente` casa com o corpus e o notebook 01 para com `AssertionError` — de propósito, para que o custo do notebook 00 (GPU mais revisão manual) não seja perdido em silêncio.
 
@@ -182,11 +182,15 @@ MODELOS = {
 |---|---|---|---|
 | SMS Spam Collection (UCI) | Dataset público | Inglês | Validação do pipeline |
 | Smishtank.com | Dataset público | Inglês | Referência de padrões (ver nota) |
-| Bortot et al. (2024) | Curadoria acadêmica | PT-BR | Semente do corpus principal |
-| CERT.br / GOV.BR | Curadoria institucional | PT-BR | Semente do corpus principal |
+| `mensagens_coletadas.csv` | Coleta própria (`fonte='coletada'`) | PT-BR | Corpus principal |
+| `mensagens_simuladas.csv` | Autoria a partir de padrões (`fonte='simulada'`) | PT-BR | Corpus principal |
 | Sintéticas validadas | Geração controlada | PT-BR | Expansão do corpus (só treino) |
 
 > **Nota metodológica (SMS Spam Collection):** é spam genérico em inglês, não smishing em português. Seu papel é exclusivamente validar que a esteira de pré-processamento e modelagem funciona mecanicamente. Resultados obtidos nele **não** constituem achados do domínio do TCC e devem aparecer no texto claramente separados.
+
+> **Nota metodológica (mensagens coletadas × simuladas):** a 4.3.1 prevê "mensagens reais **ou simuladas** [...] **ou criadas com base em padrões conhecidos**", e a 4.4.2 repete: "reais (quando possível) **ou simuladas com base em evidências**", com rotulagem manual em ambos os casos. Bortot et al. (2024) e as cartilhas do CERT.br / GOV.BR **não são fontes de mensagens** — são as fontes de *padrões* da etapa 4.4.1, que fala em "mapear os padrões linguísticos, técnicas de persuasão e abordagens mais recorrentes". As mensagens são escritas a partir desses padrões, ou coletadas quando existir mensagem real disponível.
+>
+> Por isso a separação em dois arquivos por proveniência, e não por bibliografia. A coluna `fonte` atravessa o pipeline inteiro até o `05`: **declare a proporção coletada/simulada nos resultados**, junto com a limitação que ela impõe. Uma base majoritariamente simulada mede a capacidade de separar mensagens escritas segundo padrões documentados — não desempenho em campo. Dizer isso no texto é mais forte do que a banca descobrir sozinha.
 
 > **Decidir antes de implementar — Smishtank:** o papel dele precisa ser explícito. Três opções, escolha uma e escreva na 4.3.1: (a) entra no corpus como fonte em inglês, (b) serve apenas para validação de pipeline junto com o SMS Spam Collection, (c) é usado só como referência de padrões para orientar a curadoria e a geração sintética, sem entrar em nenhum treino. Ambiguidade aqui é pergunta certa de banca. **A opção (c) é a mais defensável** dado que o corpus-alvo é PT-BR.
 
@@ -475,6 +479,7 @@ O documento atual é o **projeto de pesquisa do TCC I** ("Projeto de Pesquisa ap
 | 3 | Remover **GPT** ou registrar a substituição por Llama | Resumo, Abstract, 3.3 | O resumo cita "BERTimbau, GPT e LLaMA"; se os resultados não têm GPT, é a primeira pergunta da banca |
 | 4 | Descrever **LLaMA**, a **quantização 4-bit** e os **baselines clássicos** | 4.3.3 | A seção só tem uma frase genérica e a imagem do BERTimbau; NB e SVM aparecem apenas na 4.4.3 |
 | 5 | Substituir "Foram utilizados **X** datasets" pelas fontes reais, com licença e papel de cada uma | 4.3.1 | Placeholder ainda no texto; definir também o papel do Smishtank |
+| 5b | Declarar a **proporção coletada/simulada** do corpus e a limitação de validade externa decorrente | 4.4.2 e Limitações | A 4.3.1/4.4.2 autorizam mensagens simuladas, mas o quanto foi simulado é resultado, não detalhe operacional |
 | 6 | Registrar a **ordem augmentation/split** e a regra anti-vazamento | 4.4.2 | Decisão metodológica central; precisa estar declarada, não só implementada |
 | 7 | Converter a seção 5 de expectativa para **resultados reais** | 5 | Está inteira no futuro ("pretende-se demonstrar", "espera-se") |
 

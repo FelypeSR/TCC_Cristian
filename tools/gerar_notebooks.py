@@ -418,19 +418,41 @@ print(f'SMS Spam Collection: {len(df_sms)} mensagens')
 print(df_sms[CFG.COL_ROTULO].value_counts().to_string())
 """),
 md("""
-## 3. Fontes curadas em PT-BR
+## 3. Corpus PT-BR
 
-Bortot et al. (2024) e CERT.br / GOV.BR **não são datasets prontos** — são
-materiais curados que compõem o corpus principal. Faça o upload dos CSVs em
-`data/raw/` antes de executar.
+O corpus principal é construído por você e enviado para `data/raw/`. A seção
+4.3.1 da monografia prevê "mensagens reais **ou simuladas** [...] **ou criadas
+com base em padrões conhecidos**", e a 4.4.2 repete: "reais (quando possível)
+**ou simuladas com base em evidências**", sempre com rotulagem manual.
 
-Colunas esperadas: `texto` (ou `mensagem`), `rotulo` e, idealmente, `tipo_golpe`.
+Bortot et al. (2024) e as cartilhas do CERT.br / GOV.BR **não são fontes de
+mensagens** — são as fontes de *padrões* levantadas na etapa 4.4.1 (identificar
+"padrões linguísticos, técnicas de persuasão e abordagens mais recorrentes").
+As mensagens são escritas a partir desses padrões, ou coletadas quando houver
+mensagem real disponível.
+
+Por isso o corpus é dividido em dois arquivos, **pela proveniência**:
+
+| arquivo | `fonte` | conteúdo |
+|---|---|---|
+| `mensagens_coletadas.csv` | `coletada` | mensagens reais que existiram, anonimizadas |
+| `mensagens_simuladas.csv` | `simulada` | escritas a partir dos padrões da 4.4.1 |
+
+A coluna `fonte` sobrevive até o `05`, então a proporção coletada/simulada pode
+ser declarada nos resultados — e precisa ser, junto com a limitação de validade
+externa que uma base majoritariamente simulada impõe.
+
+Colunas esperadas: `mensagem`, `rotulo` e `tipo_golpe`.
 """),
 code("""
-# Ajuste os nomes de coluna conforme os arquivos reais
+# A chave 'fonte' vira coluna no corpus e chega até o notebook 05: é ela que
+# permite reportar quanto do corpus é mensagem coletada e quanto é simulada.
+# Ajuste os nomes de coluna conforme os arquivos reais.
 FONTES_PT = [
-    {'arquivo': 'bortot.csv', 'fonte': 'bortot', 'col_texto': 'mensagem', 'col_rotulo': 'rotulo'},
-    {'arquivo': 'certbr.csv', 'fonte': 'certbr', 'col_texto': 'mensagem', 'col_rotulo': 'rotulo'},
+    {'arquivo': 'mensagens_coletadas.csv', 'fonte': 'coletada',
+     'col_texto': 'mensagem', 'col_rotulo': 'rotulo'},
+    {'arquivo': 'mensagens_simuladas.csv', 'fonte': 'simulada',
+     'col_texto': 'mensagem', 'col_rotulo': 'rotulo'},
 ]
 
 
@@ -530,8 +552,8 @@ if os.path.isfile(CFG.SINTETICAS):
     # conjunto de avaliação.
     #
     # A comparação é feita por `pp.id_mensagem`, derivado do conteúdo: o
-    # notebook 00 lê as sementes de sementes_pt.csv e este lê o corpus de
-    # bortot.csv / certbr.csv, então não existe id posicional comum aos dois.
+    # notebook 00 lê as sementes de sementes_pt.csv e este lê o corpus dos
+    # arquivos de FONTES_PT, então não existe id posicional comum aos dois.
     # Ligar pelo conteúdo é o que faz semente e mensagem real se reconhecerem
     # mesmo vindo de arquivos diferentes.
     hashes_treino = set(treino[CFG.COL_TEXTO].apply(pp.id_mensagem))
