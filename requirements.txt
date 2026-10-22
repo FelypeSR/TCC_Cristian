@@ -18,9 +18,6 @@ spacy>=3.7
 # O modelo de português é baixado à parte, a cada runtime:
 #   !python -m spacy download pt_core_news_sm -q
 
-# --- Fontes de dados ---
-ucimlrepo>=0.0.7
-
 # --- Transformers (BERTimbau e Llama) ---
 transformers>=4.41        # eval_strategy; em versões anteriores era evaluation_strategy
 datasets>=2.14

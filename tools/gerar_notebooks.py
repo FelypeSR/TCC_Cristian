@@ -398,24 +398,38 @@ md("""
 > e modelagem funciona mecanicamente. **Não entra no corpus principal e não
 > constitui achado do domínio do TCC** — no texto, esses resultados precisam
 > aparecer claramente separados.
+
+Faça o upload do arquivo `SMSSpamCollection` (sem extensão, como vem no zip
+do UCI) em `data/raw/`. O `ucimlrepo` não serve: o UCI não disponibiliza
+este dataset para importação por Python.
 """),
 code("""
-from ucimlrepo import fetch_ucirepo
+import csv
 
-sms = fetch_ucirepo(id=228)
-df_sms = pd.DataFrame({
-    CFG.COL_TEXTO: sms.data.features['sms'],
-    # 'spam' aqui é mensagem indesejada; mapeada para a classe positiva apenas
-    # para que o pipeline mecânico tenha duas classes com que trabalhar
-    CFG.COL_ROTULO: sms.data.targets['label'].map(
-        {'spam': CFG.CLASSE_POSITIVA, 'ham': CFG.CLASSE_NEGATIVA}),
-})
+CAMINHO_SMS = f'{RAW}/SMSSpamCollection'
 
-df_sms = padronizar(df_sms, fonte='sms_spam_collection', idioma='en')
-df_sms.to_csv(f'{RAW}/sms_spam_collection.csv', index=False, encoding='utf-8')
+if os.path.isfile(CAMINHO_SMS):
+    # Uma mensagem por linha: rótulo, tab, texto. QUOTE_NONE porque há
+    # mensagens com aspas desbalanceadas — sem ele o pandas junta linhas
+    # vizinhas e duas mensagens somem sem erro.
+    bruto = pd.read_csv(CAMINHO_SMS, sep='\\t', header=None, names=['label', 'sms'],
+                        quoting=csv.QUOTE_NONE, encoding='utf-8')
+    df_sms = pd.DataFrame({
+        CFG.COL_TEXTO: bruto['sms'],
+        # 'spam' aqui é mensagem indesejada; mapeada para a classe positiva apenas
+        # para que o pipeline mecânico tenha duas classes com que trabalhar
+        CFG.COL_ROTULO: bruto['label'].map(
+            {'spam': CFG.CLASSE_POSITIVA, 'ham': CFG.CLASSE_NEGATIVA}),
+    })
 
-print(f'SMS Spam Collection: {len(df_sms)} mensagens')
-print(df_sms[CFG.COL_ROTULO].value_counts().to_string())
+    df_sms = padronizar(df_sms, fonte='sms_spam_collection', idioma='en')
+    df_sms.to_csv(f'{RAW}/sms_spam_collection.csv', index=False, encoding='utf-8')
+
+    print(f'SMS Spam Collection: {len(df_sms)} mensagens')
+    print(df_sms[CFG.COL_ROTULO].value_counts().to_string())
+else:
+    print('[AVISO] SMSSpamCollection não encontrado em data/raw/ — validação de '
+          'pipeline do notebook 02 será pulada.')
 """),
 md("""
 ## 3. Corpus PT-BR

@@ -97,7 +97,6 @@ matplotlib
 seaborn
 nltk
 spacy
-ucimlrepo
 transformers>=4.41        # eval_strategy; em versões anteriores era evaluation_strategy
 datasets
 accelerate
