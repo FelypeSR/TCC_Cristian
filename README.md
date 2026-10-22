@@ -185,12 +185,18 @@ MODELOS = {
 | `mensagens_coletadas.csv` | Coleta própria (`fonte='coletada'`) | PT-BR | Corpus principal |
 | `mensagens_simuladas.csv` | Autoria a partir de padrões (`fonte='simulada'`) | PT-BR | Corpus principal |
 | Sintéticas validadas | Geração controlada | PT-BR | Expansão do corpus (só treino) |
+| `Dataset_5971.csv` | Dataset público (`ham`, `spam`, `smishing`) | Inglês | Expansão do treino (só treino; `spam` descartado) |
+| `golpebr_dataset.csv` | Relatos de vítimas de golpe | PT-BR | Referência de padrões da 4.4.1 — não entra em nenhum treino |
 
 > **Nota metodológica (SMS Spam Collection):** é spam genérico em inglês, não smishing em português. Seu papel é exclusivamente validar que a esteira de pré-processamento e modelagem funciona mecanicamente. Resultados obtidos nele **não** constituem achados do domínio do TCC e devem aparecer no texto claramente separados.
 
 > **Nota metodológica (mensagens coletadas × simuladas):** a 4.3.1 prevê "mensagens reais **ou simuladas** [...] **ou criadas com base em padrões conhecidos**", e a 4.4.2 repete: "reais (quando possível) **ou simuladas com base em evidências**", com rotulagem manual em ambos os casos. Bortot et al. (2024) e as cartilhas do CERT.br / GOV.BR **não são fontes de mensagens** — são as fontes de *padrões* da etapa 4.4.1, que fala em "mapear os padrões linguísticos, técnicas de persuasão e abordagens mais recorrentes". As mensagens são escritas a partir desses padrões, ou coletadas quando existir mensagem real disponível.
 >
 > Por isso a separação em dois arquivos por proveniência, e não por bibliografia. A coluna `fonte` atravessa o pipeline inteiro até o `05`: **declare a proporção coletada/simulada nos resultados**, junto com a limitação que ela impõe. Uma base majoritariamente simulada mede a capacidade de separar mensagens escritas segundo padrões documentados — não desempenho em campo. Dizer isso no texto é mais forte do que a banca descobrir sozinha.
+
+> **Nota metodológica (Dataset_5971):** são SMS reais, mas em inglês. Entra **só no treino**, depois do split, pelo mesmo motivo das sintéticas: val e teste continuam 100% PT-BR, e os resultados seguem sendo sobre o domínio do TCC. As mensagens rotuladas `spam` (propaganda) ficam de fora — o `MAPA_ROTULOS` as levaria para a classe positiva, ensinando que anúncio é golpe. O few-shot do notebook 04 é sorteado só entre as mensagens PT-BR do treino.
+
+> **Nota metodológica (GolpeBR):** os textos são relatos de vítimas (mediana de ~900 caracteres), não as mensagens de golpe em si. Por isso servem à etapa 4.4.1 — padrões linguísticos e técnicas de persuasão — e não entram no corpus.
 
 > **Decidir antes de implementar — Smishtank:** o papel dele precisa ser explícito. Três opções, escolha uma e escreva na 4.3.1: (a) entra no corpus como fonte em inglês, (b) serve apenas para validação de pipeline junto com o SMS Spam Collection, (c) é usado só como referência de padrões para orientar a curadoria e a geração sintética, sem entrar em nenhum treino. Ambiguidade aqui é pergunta certa de banca. **A opção (c) é a mais defensável** dado que o corpus-alvo é PT-BR.
 
@@ -203,9 +209,9 @@ Esta é a decisão mais importante do projeto inteiro.
 ```
 corpus real → split 70/15/15 estratificado (seed 42)
                     │
-                    ├── train ← recebe as mensagens sintéticas
-                    ├── val   ← 100% real
-                    └── test  ← 100% real
+                    ├── train ← recebe as sintéticas e o Dataset_5971 (inglês)
+                    ├── val   ← 100% real, 100% PT-BR
+                    └── test  ← 100% real, 100% PT-BR
 ```
 
 Assim val e test contêm apenas mensagens reais, e a monografia pode afirmar que "os modelos foram avaliados exclusivamente sobre mensagens reais". Isso responde de uma vez a duas perguntas de banca: a do vazamento e a de "seu modelo não está apenas reconhecendo o estilo do gerador?".
@@ -216,7 +222,7 @@ Assim val e test contêm apenas mensagens reais, e a monografia pode afirmar que
 1. Carrega as fontes reais e padroniza o esquema
 2. Deduplica por texto normalizado (não por texto exato — variações triviais de espaçamento e pontuação escapam da comparação exata)
 3. Split 70/15/15 estratificado por rótulo, `random_state=42`
-4. Incorpora as sintéticas validadas **apenas ao treino**
+4. Incorpora as sintéticas validadas e o Dataset_5971 **apenas ao treino**
 5. Persiste os splits e o registro de proveniência
 
 **Saídas obrigatórias:**
@@ -230,7 +236,7 @@ Assim val e test contêm apenas mensagens reais, e a monografia pode afirmar que
 - Proporção da classe positiva em train/val/test (a estratificação funcionou?)
 - Interseção de `id` entre os três subconjuntos (deve ser vazia)
 - Interseção de `id_semente` entre train e test (deve ser vazia)
-- Confirmação de que val e test não contêm `fonte == 'sintetica'`
+- Confirmação de que val e test não contêm `fonte == 'sintetica'` nem mensagens fora do português
 
 **Aspectos éticos e LGPD** (conforme 4.4.2):
 - Anonimização antes de qualquer processamento: mascarar nomes, CPFs, números de telefone e contas
@@ -336,7 +342,7 @@ O modelo devolve o score de risco; as faixas alimentam a seção de diretrizes (
 
 Os níveis são o que conecta este notebook à etapa 4.4.5 e ao discurso educativo que o TCC sustenta do começo ao fim. Sem eles, uma entrega prometida na seção 5 fica sem contrapartida.
 
-**Prevenção de vazamento:** os exemplos few-shot vêm **exclusivamente do treino**, amostrados com a seed do projeto. Nunca de val ou test.
+**Prevenção de vazamento:** os exemplos few-shot vêm **exclusivamente do treino**, só das mensagens PT-BR, amostrados com a seed do projeto. Nunca de val ou test.
 
 **Uso da validação:** o `val.csv` serve para **escolher o prompt** (zero-shot vs. few-shot, variações da rubrica, número de exemplos). Iterar o prompt olhando o resultado do teste é vazamento pelo conjunto de teste — a versão final do prompt precisa ser escolhida antes de o teste ser tocado.
 
@@ -437,6 +443,7 @@ Implementação: `confusion_matrix`, `classification_report`, `ConfusionMatrixDi
 | Split | 70/15/15 estratificado, seed 42 | Reprodutibilidade e comparação justa |
 | Split único vs. k-fold | Split único persistido | Garante exatamente o mesmo teste para todas as trilhas |
 | Ordem augmentation/split | Split primeiro, sintéticas só no treino | Val e test permanecem 100% reais |
+| Dataset_5971 (inglês) | Só no treino, sem `spam` | Mais exemplos de treino sem tirar val e test do PT-BR |
 | GPT vs. Llama | Llama aberto quantizado | Gratuito, reprodutível, sem API paga |
 | Naive Bayes | ComplementNB | Variante otimizada para classes desbalanceadas |
 | Métrica-título | F2 | Formaliza o custo assimétrico do falso negativo |

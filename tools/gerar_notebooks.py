@@ -324,17 +324,17 @@ afirmação de que as trilhas foram comparadas em condições iguais.
 **Split primeiro, sintéticas depois — e só no treino.**
 
 ```
-corpus real → split 70/15/15 estratificado
+corpus real PT-BR → split 70/15/15 estratificado
                     │
-                    ├── train ← recebe as mensagens sintéticas
-                    ├── val   ← 100% real
-                    └── test  ← 100% real
+                    ├── train ← recebe as sintéticas e o Dataset_5971 (inglês)
+                    ├── val   ← 100% real, 100% PT-BR
+                    └── test  ← 100% real, 100% PT-BR
 ```
 
 Assim a monografia pode afirmar que *os modelos foram avaliados exclusivamente
-sobre mensagens reais*. Isso responde de uma vez a duas perguntas de banca: a do
-vazamento de dados e a de "seu modelo não está apenas reconhecendo o estilo do
-gerador?".
+sobre mensagens reais em português*. Isso responde de uma vez a duas perguntas
+de banca: a do vazamento de dados e a de "seu modelo não está apenas
+reconhecendo o estilo do gerador?".
 
 Fazer o contrário — aumentar e depois dividir — coloca variações da mesma
 mensagem-semente em treino e teste. Todas as métricas sobem, os três modelos
@@ -603,18 +603,71 @@ if os.path.isfile(CFG.SINTETICAS):
     print(f'Sintéticas incorporadas ao treino: {len(sinteticas)}')
 else:
     print('[INFO] Sem mensagens sintéticas — corpus apenas com mensagens reais.')
+"""),
+md("""
+## 7. Dataset_5971 — só no treino
+
+SMS reais em inglês, rotulados em `ham`, `spam` e `smishing`. Entra no treino
+para ampliar os exemplos de golpe e, principalmente, os de mensagem legítima,
+a classe mais escassa no corpus PT-BR.
+
+Fica **fora de val e teste** pelo mesmo motivo das sintéticas: a avaliação
+mede o domínio do TCC, SMS em português. Os resultados continuam sendo sobre
+mensagens reais em PT-BR.
+
+Faça o upload de `Dataset_5971.csv` em `data/raw/`, sem alterar o arquivo.
+"""),
+code("""
+CAMINHO_5971 = f'{RAW}/Dataset_5971.csv'
+
+if os.path.isfile(CAMINHO_5971):
+    bruto = pd.read_csv(CAMINHO_5971, encoding='utf-8')
+    rotulo = bruto['LABEL'].astype(str).str.strip().str.lower()
+
+    # O dataset separa 'spam' (propaganda) de 'smishing' (golpe). O MAPA_ROTULOS
+    # junta os dois na classe positiva, o que aqui ensinaria que anúncio é
+    # golpe; chamar propaganda de legítima também seria falso. Fica de fora.
+    n_spam = int((rotulo == 'spam').sum())
+    bruto = bruto[rotulo != 'spam']
+
+    df_5971 = pd.DataFrame({
+        CFG.COL_TEXTO:  bruto['TEXT'],
+        CFG.COL_ROTULO: mapear_rotulos(bruto['LABEL']),
+    }).dropna(subset=[CFG.COL_ROTULO])
+    df_5971 = padronizar(df_5971, fonte='dataset_5971', idioma='en')
+    print(f'Dataset_5971: {len(df_5971)} mensagens ({n_spam} spam descartadas)')
+
+    # Mesmos cuidados das sintéticas: sem repetição interna (o dataset tem
+    # muitas mensagens curtas idênticas) e nada que colida com o split.
+    df_5971['_chave'] = df_5971[CFG.COL_TEXTO].apply(pp.chave_dedup)
+    antes = len(df_5971)
+    df_5971 = df_5971.drop_duplicates(subset='_chave')
+    print(f'[INFO] {antes - len(df_5971)} descartadas — duplicadas no próprio dataset')
+
+    chaves_split = set(pd.concat([treino, val, teste])[CFG.COL_TEXTO].apply(pp.chave_dedup))
+    antes = len(df_5971)
+    df_5971 = df_5971[~df_5971['_chave'].isin(chaves_split)].drop(columns='_chave')
+    print(f'[INFO] {antes - len(df_5971)} descartadas — texto já presente no split')
+
+    treino = pd.concat([treino, df_5971], ignore_index=True)
+    treino = treino.sample(frac=1, random_state=CFG.SEED).reset_index(drop=True)
+
+    print(f'\\nDataset_5971 incorporado ao treino: {len(df_5971)}')
+    print(df_5971[CFG.COL_ROTULO].value_counts().to_string())
+else:
+    print('[AVISO] Dataset_5971.csv não encontrado em data/raw/ — treino só com PT-BR.')
 
 print(f'\\nTreino final: {len(treino)}  |  Val: {len(val)}  |  Teste: {len(teste)}')
 """),
 md("""
-## 7. Verificações de integridade
+## 8. Verificações de integridade
 
 Qualquer falha aqui invalida todos os resultados a jusante. O notebook para.
 """),
 code("""
 falhas = []
 
-# 7.1 — nenhum id em dois subconjuntos
+# 8.1 — nenhum id em dois subconjuntos
 ids = {'treino': set(treino['id']), 'val': set(val['id']), 'teste': set(teste['id'])}
 for a, b in [('treino', 'val'), ('treino', 'teste'), ('val', 'teste')]:
     comum = ids[a] & ids[b]
@@ -622,7 +675,7 @@ for a, b in [('treino', 'val'), ('treino', 'teste'), ('val', 'teste')]:
     if comum:
         falhas.append(f'{len(comum)} ids compartilhados entre {a} e {b}')
 
-# 7.2 — nenhuma semente atravessando o split (o vazamento perigoso)
+# 8.2 — nenhuma semente atravessando o split (o vazamento perigoso)
 sem = {k: set(d.loc[d['id_semente'].astype(str) != '', 'id_semente'])
        for k, d in [('treino', treino), ('val', val), ('teste', teste)]}
 for a, b in [('treino', 'val'), ('treino', 'teste'), ('val', 'teste')]:
@@ -631,14 +684,20 @@ for a, b in [('treino', 'val'), ('treino', 'teste'), ('val', 'teste')]:
     if comum:
         falhas.append(f'{len(comum)} sementes compartilhadas entre {a} e {b}')
 
-# 7.3 — val e teste precisam ser 100% reais
+# 8.3 — val e teste precisam ser 100% reais e em PT-BR: sintéticas e
+# Dataset_5971 são só de treino
 for nome, d in [('val', val), ('teste', teste)]:
     n_sint = int((d['fonte'] == 'sintetica').sum())
     print(f'  [{"ok" if not n_sint else "ERRO"}] {nome} sem sintéticas: {n_sint} encontradas')
     if n_sint:
         falhas.append(f'{n_sint} sintéticas em {nome}')
 
-# 7.4 — texto duplicado atravessando o split
+    n_fora_pt = int((d['idioma'] != 'pt').sum())
+    print(f'  [{"ok" if not n_fora_pt else "ERRO"}] {nome} só PT-BR: {n_fora_pt} fora do português')
+    if n_fora_pt:
+        falhas.append(f'{n_fora_pt} mensagens fora do português em {nome}')
+
+# 8.4 — texto duplicado atravessando o split
 chaves = {k: set(d[CFG.COL_TEXTO].apply(pp.chave_dedup))
           for k, d in [('treino', treino), ('val', val), ('teste', teste)]}
 for a, b in [('treino', 'val'), ('treino', 'teste'), ('val', 'teste')]:
@@ -651,7 +710,7 @@ if falhas:
     raise AssertionError('Split inválido:\\n  - ' + '\\n  - '.join(falhas))
 print('\\n[OK] Split íntegro.')
 """),
-md("## 8. Salvamento"),
+md("## 9. Salvamento"),
 code("""
 corpus = pd.concat([treino, val, teste], ignore_index=True)
 corpus.to_csv(CFG.CORPUS_COMPLETO, index=False, encoding='utf-8')
@@ -665,10 +724,12 @@ for nome, d in splits.items():
 ev.salvar_split_info(splits, extras={
     'fontes_reais': [s['fonte'] for s in FONTES_PT],
     'sinteticas_no_treino': int((treino['fonte'] == 'sintetica').sum()),
+    'dataset_5971_no_treino': int((treino['fonte'] == 'dataset_5971').sum()),
     'val_teste_apenas_reais': True,
+    'val_teste_apenas_pt': True,
 })
 """),
-md("## 9. Estatísticas e figuras"),
+md("## 10. Estatísticas e figuras"),
 code("""
 import matplotlib.pyplot as plt
 
@@ -693,9 +754,12 @@ code("""
 # Tipos de golpe e comprimento das mensagens — insumo da etapa 4.4.1
 fig, axes = plt.subplots(1, 2, figsize=(14, 4))
 
-golpes = corpus[corpus[CFG.COL_ROTULO] == CFG.CLASSE_POSITIVA]['tipo_golpe'].value_counts()
+# Só PT-BR: o Dataset_5971 não traz tipo de golpe, e as centenas de 'outro'
+# que ele recebe por padrão esconderiam a taxonomia da 4.4.1
+golpes = corpus[(corpus[CFG.COL_ROTULO] == CFG.CLASSE_POSITIVA) &
+                (corpus['idioma'] == 'pt')]['tipo_golpe'].value_counts()
 axes[0].barh(golpes.index, golpes.values, color='#4878CF')
-axes[0].set_title('Mensagens por tipo de golpe')
+axes[0].set_title('Mensagens por tipo de golpe (PT-BR)')
 axes[0].set_xlabel('Quantidade')
 
 corpus['n_chars'] = corpus[CFG.COL_TEXTO].str.len()
@@ -1401,9 +1465,22 @@ preencha `ANOTACOES` na célula seguinte.
 code("""
 N_POR_CLASSE = 3
 
-cand_pos = treino[treino[CFG.COL_ROTULO] == CFG.CLASSE_POSITIVA].sample(
+# Só PT-BR: o treino também tem o Dataset_5971, em inglês e muito mais
+# numeroso. Sem o filtro, quase todo exemplo sorteado sairia em inglês, para
+# uma rubrica em português avaliada sobre mensagens em português.
+treino_pt = treino[treino['idioma'] == 'pt']
+for classe in CFG.CLASSES:
+    n = int((treino_pt[CFG.COL_ROTULO] == classe).sum())
+    if n < N_POR_CLASSE:
+        raise ValueError(
+            f'O treino tem só {n} mensagens PT-BR da classe "{classe}" — '
+            f'são necessárias {N_POR_CLASSE} para o few-shot. Amplie o corpus '
+            'PT-BR antes de rodar este notebook.'
+        )
+
+cand_pos = treino_pt[treino_pt[CFG.COL_ROTULO] == CFG.CLASSE_POSITIVA].sample(
     N_POR_CLASSE, random_state=CFG.SEED)
-cand_neg = treino[treino[CFG.COL_ROTULO] == CFG.CLASSE_NEGATIVA].sample(
+cand_neg = treino_pt[treino_pt[CFG.COL_ROTULO] == CFG.CLASSE_NEGATIVA].sample(
     N_POR_CLASSE, random_state=CFG.SEED)
 candidatos = pd.concat([cand_pos, cand_neg]).reset_index(drop=True)
 
