@@ -1256,14 +1256,24 @@ code("""
 # Checkpoints no disco LOCAL do Colab, não no Drive
 CKPT = '/content/bertimbau_ckpt'
 
+EPOCAS = 5
+BATCH = 16
+
+# Warmup de 10% dos passos de treino, em número inteiro: `warmup_ratio` não
+# existe nas versões novas do transformers, e `warmup_steps` fracionário não
+# existe nas antigas. O inteiro funciona nas duas.
+passos_totais = EPOCAS * int(np.ceil(len(ds_treino) / BATCH))
+warmup = int(np.ceil(0.1 * passos_totais))
+print(f'Passos de treino: {passos_totais}  |  warmup: {warmup}')
+
 args = TrainingArguments(
     output_dir=CKPT,
-    num_train_epochs=5,
-    per_device_train_batch_size=16,
+    num_train_epochs=EPOCAS,
+    per_device_train_batch_size=BATCH,
     per_device_eval_batch_size=32,
     learning_rate=2e-5,
     weight_decay=0.01,
-    warmup_ratio=0.1,
+    warmup_steps=warmup,
     eval_strategy='epoch',           # em transformers < 4.41 chama-se evaluation_strategy
     save_strategy='epoch',
     load_best_model_at_end=True,
@@ -1351,7 +1361,9 @@ pred = ev.aplicar_limiar(score_teste, limiar)
 metricas = ev.calcular_metricas(y_teste_str, pred, score_teste)
 print('=== BERTimbau — teste ===')
 for chave in ev.ORDEM_METRICAS:
-    print(f'  {ev.NOMES_METRICAS[chave]:16}: {metricas[chave]:.4f}')
+    valor = metricas[chave]
+    print(f'  {ev.NOMES_METRICAS[chave]:16}: {valor:.4f}' if valor is not None
+          else f'  {ev.NOMES_METRICAS[chave]:16}: –')
 print(f"  VP={metricas['VP']}  FN={metricas['FN']}  FP={metricas['FP']}  VN={metricas['VN']}")
 
 ev.salvar_predicoes(teste['id'], y_teste_str, pred, score_teste, 'bertimbau')
@@ -1363,7 +1375,8 @@ plt.show()
 """),
 code("""
 # Só o modelo final vai para o Drive — os checkpoints ficam no disco local
-DESTINO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "notebooks")
+DESTINO = f"{CFG.PATHS['models']}/bertimbau_final"
+os.makedirs(DESTINO, exist_ok=True)
 trainer.save_model(DESTINO)
 tok.save_pretrained(DESTINO)
 
