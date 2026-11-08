@@ -51,9 +51,13 @@ CRITERIOS = [
     {
         'id': 3,
         'nome': 'link_ou_acao',
-        'descricao': 'Pede para clicar em um link, baixar um aplicativo ou acessar '
-                     'um endereço na internet.',
-        'explicacao': 'Pede que você clique em um link ou instale algo.',
+        # "Ligar para um número" entrou em 2026-11-08, na anotação do few-shot:
+        # no golpe de retorno de ligação o número de telefone faz o papel do
+        # link. Bortot et al. (2024, p. 13) cobre o link e o clique; a ligação
+        # precisa de fonte própria na monografia (README, pendência 15).
+        'descricao': 'Pede para clicar em um link, baixar um aplicativo, acessar '
+                     'um endereço na internet ou ligar para um número de telefone.',
+        'explicacao': 'Pede que você clique em um link, instale algo ou ligue para um número.',
         'origem': 'Bortot et al. (2024, p. 13)',
     },
     {

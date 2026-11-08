@@ -1538,8 +1538,10 @@ Os exemplos precisam vir do **treino** e ter os critérios anotados à mão. Sã
 poucos: seis mensagens. Anote com cuidado — eles definem o padrão que o modelo
 vai imitar.
 
-Execute a célula abaixo para ver os candidatos sorteados do treino, depois
-preencha `ANOTACOES` na célula seguinte.
+Execute a célula abaixo para ver os candidatos sorteados do treino. A anotação
+feita em 2026-11-08 já está na célula seguinte, junto com o início do texto de
+cada candidato anotado: se o corpus ou o split mudarem, o sorteio traz outras
+mensagens, a execução para e é preciso anotar de novo.
 """),
 code("""
 N_POR_CLASSE = 3
@@ -1569,14 +1571,33 @@ for i, linha in candidatos.iterrows():
     print()
 """),
 code("""
-# ── Preencha: índice do candidato → lista de critérios presentes ───────────
-# Registre os critérios REALMENTE presentes em cada mensagem exibida acima,
-# no formato {índice: [ids dos critérios]}. Mensagem legítima costuma ficar
-# com lista vazia. Deixar o dicionário vazio interrompe a execução logo abaixo.
-#
-# Modelo (apague e substitua pelos seus valores):
-#     ANOTACOES = {0: [1, 2, 3], 1: [1, 3, 6], 2: [2, 4], 3: [], 4: [], 5: []}
-ANOTACOES = {}
+# ── Anotação: índice do candidato → lista de critérios presentes ──────────
+# Feita à mão em 2026-11-08 sobre os candidatos impressos acima. Regras: marca-se
+# o critério cuja descrição se aplica literalmente ao texto; "ligue para um
+# número" conta no 3; empresa sem nome não conta no 1; ameaça de corte ou de
+# cancelamento conta no 6. Legítima sem nenhum critério fica com lista vazia.
+ANOTACOES = {
+    0: [2, 7],      # falso filho pedindo pix urgente
+    1: [1, 2, 3],   # "BANCO:", cancele agora, link
+    2: [3, 4],      # upgrade grátis do chip, ligue para a operadora
+    3: [],          # almoço da equipe
+    4: [],          # comprar leite e pão
+    5: [],          # atraso no trânsito
+}
+
+# Início do texto de cada candidato no momento da anotação. Se o corpus ou o
+# split mudarem, os mesmos índices passam a apontar para mensagens que ninguém
+# anotou, e a anotação errada seguiria em silêncio para o prompt. A execução
+# para logo abaixo; nesse caso, anote os candidatos novos e atualize os dois
+# dicionários.
+INICIO_ANOTADO = {
+    0: 'Mae, meu celular quebrou',
+    1: 'BANCO: Detectamos um PIX',
+    2: 'Upgrade GRÁTIS para seu cartão SIM',
+    3: 'O almoço da equipe',
+    4: 'Você poderia comprar leite',
+    5: 'Vou me atrasar 15 minutos',
+}
 
 # ── Verificação da anotação ───────────────────────────────────────────────
 # Estes exemplos são o few-shot: o que estiver aqui é o padrão que o modelo
@@ -1594,6 +1615,26 @@ if not ANOTACOES:
 faltando = [i for i in candidatos.index if i not in ANOTACOES]
 if faltando:
     raise ValueError(f'Índices sem anotação: {faltando}')
+
+import unicodedata
+
+
+def _nfc(texto):
+    # Mesma forma Unicode dos dois lados: 'Á' pode vir composto ou decomposto
+    return unicodedata.normalize('NFC', str(texto))
+
+
+divergentes = [
+    i for i, inicio in INICIO_ANOTADO.items()
+    if i not in candidatos.index
+    or not _nfc(candidatos.loc[i, CFG.COL_TEXTO]).startswith(_nfc(inicio))
+]
+if divergentes or set(INICIO_ANOTADO) != set(ANOTACOES):
+    raise ValueError(
+        f'Os candidatos {divergentes} não são as mensagens anotadas: o corpus ou o '
+        'split mudou desde a anotação. Anote os candidatos impressos na célula '
+        'acima e atualize ANOTACOES e INICIO_ANOTADO.'
+    )
 
 for indice, criterios in ANOTACOES.items():
     invalidos = [c for c in criterios if c not in R.CRITERIOS_POR_ID]

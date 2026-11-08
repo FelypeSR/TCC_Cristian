@@ -328,7 +328,7 @@ Critérios ancorados no referencial teórico do próprio TCC — Bortot et al. (
 |---|---|---|
 | 1 | Falsa identidade institucional (banco, saúde, órgão de governo) | Bortot et al. |
 | 2 | Urgência artificial / "verificação imediata" | Bortot et al. |
-| 3 | Link ou pedido de clique | Bortot et al. |
+| 3 | Link, pedido de clique ou de ligação para um número | Bortot et al. (link e clique); a ligação ainda precisa de fonte |
 | 4 | Promessa de prêmio ou benefício com ação rápida | Bortot et al. |
 | 5 | Solicitação de dados pessoais ou bancários | Seção 3.1 |
 | 6 | Ameaça de perda (bloqueio de conta, corte de benefício) | Seção 3.2 |
@@ -504,6 +504,7 @@ O documento atual é o **projeto de pesquisa do TCC I** ("Projeto de Pesquisa ap
 | 12 | Corrigir o **sumário**: faltam 4.1 a 4.4; a seção 5 aparece como "RESULTADOS ESPERADOS" e no corpo como "RESULTADOS" | Sumário |
 | 13 | Acertar a **Lista de Ilustrações** (quase todas apontando para a p. 10) e o rótulo "Imagem 1", usado para duas figuras diferentes | Pré-textuais |
 | 14 | Remover a marcação "(se puder, inserir aqui uma imagem)" | 3.1 |
+| 15 | Citar uma fonte para "ligar para um número" no critério 3 da rubrica (golpe de retorno de ligação, falsa central). Bortot et al. (2024, p. 13) cobre só o link e o clique | 3.1 ou 3.2, e 4.4.3 |
 
 ### Referências e citações
 
