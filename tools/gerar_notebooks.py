@@ -445,14 +445,15 @@ mensagens** — são as fontes de *padrões* levantadas na etapa 4.4.1 (identifi
 As mensagens são escritas a partir desses padrões, ou coletadas quando houver
 mensagem real disponível.
 
-Por isso o corpus é dividido em dois arquivos, **pela proveniência**:
+Por isso o corpus é dividido em três arquivos, **pela proveniência**:
 
 | arquivo | `fonte` | conteúdo |
 |---|---|---|
 | `mensagens_coletadas.csv` | `coletada` | mensagens reais que existiram, anonimizadas |
 | `mensagens_simuladas.csv` | `simulada` | escritas a partir dos padrões da 4.4.1 |
+| `mensagens_traduzidas.csv` | `traduzida` | dataset público do Kaggle traduzido para o português, só SMS e WhatsApp sem marca estrangeira |
 
-A coluna `fonte` sobrevive até o `05`, então a proporção coletada/simulada pode
+A coluna `fonte` sobrevive até o `05`, então a proporção entre as fontes pode
 ser declarada nos resultados — e precisa ser, junto com a limitação de validade
 externa que uma base majoritariamente simulada impõe.
 
@@ -460,12 +461,14 @@ Colunas esperadas: `mensagem`, `rotulo` e `tipo_golpe`.
 """),
 code("""
 # A chave 'fonte' vira coluna no corpus e chega até o notebook 05: é ela que
-# permite reportar quanto do corpus é mensagem coletada e quanto é simulada.
+# permite reportar quanto do corpus veio de cada proveniência.
 # Ajuste os nomes de coluna conforme os arquivos reais.
 FONTES_PT = [
     {'arquivo': 'mensagens_coletadas.csv', 'fonte': 'coletada',
      'col_texto': 'mensagem', 'col_rotulo': 'rotulo'},
     {'arquivo': 'mensagens_simuladas.csv', 'fonte': 'simulada',
+     'col_texto': 'mensagem', 'col_rotulo': 'rotulo'},
+    {'arquivo': 'mensagens_traduzidas.csv', 'fonte': 'traduzida',
      'col_texto': 'mensagem', 'col_rotulo': 'rotulo'},
 ]
 

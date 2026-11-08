@@ -183,6 +183,7 @@ MODELOS = {
 | Smishtank.com | Dataset público | Inglês | Referência de padrões (ver nota) |
 | `mensagens_coletadas.csv` | Coleta própria (`fonte='coletada'`) | PT-BR | Corpus principal |
 | `mensagens_simuladas.csv` | Autoria a partir de padrões (`fonte='simulada'`) | PT-BR | Corpus principal |
+| `mensagens_traduzidas.csv` | Dataset do Kaggle traduzido, 22 das 60 mensagens (`fonte='traduzida'`) | PT-BR | Corpus principal, com ressalvas (ver nota) |
 | Sintéticas validadas | Geração controlada | PT-BR | Expansão do corpus (só treino) |
 | `Dataset_5971.csv` | Dataset público (`ham`, `spam`, `smishing`) | Inglês | Expansão do treino (só treino; `spam` descartado) |
 | `golpebr_dataset.csv` | Relatos de vítimas de golpe | PT-BR | Referência de padrões da 4.4.1 — não entra em nenhum treino |
@@ -192,6 +193,8 @@ MODELOS = {
 > **Nota metodológica (mensagens coletadas × simuladas):** a 4.3.1 prevê "mensagens reais **ou simuladas** [...] **ou criadas com base em padrões conhecidos**", e a 4.4.2 repete: "reais (quando possível) **ou simuladas com base em evidências**", com rotulagem manual em ambos os casos. Bortot et al. (2024) e as cartilhas do CERT.br / GOV.BR **não são fontes de mensagens** — são as fontes de *padrões* da etapa 4.4.1, que fala em "mapear os padrões linguísticos, técnicas de persuasão e abordagens mais recorrentes". As mensagens são escritas a partir desses padrões, ou coletadas quando existir mensagem real disponível.
 >
 > Por isso a separação em dois arquivos por proveniência, e não por bibliografia. A coluna `fonte` atravessa o pipeline inteiro até o `05`: **declare a proporção coletada/simulada nos resultados**, junto com a limitação que ela impõe. Uma base majoritariamente simulada mede a capacidade de separar mensagens escritas segundo padrões documentados — não desempenho em campo. Dizer isso no texto é mais forte do que a banca descobrir sozinha.
+
+> **Nota metodológica (mensagens traduzidas):** das 60 mensagens traduzidas de um dataset do Kaggle, entram 22: 15 legítimas e 7 de smishing, só de SMS e WhatsApp e sem marca estrangeira (rupia, dólar, Bengaluru, EPFO, IPL). As de e-mail estão fora do escopo, e a id 3 ficou de fora por ser tradução direta de uma mensagem dos datasets em inglês. As duas classes entram juntas porque, se só as legítimas entrassem, o estilo de texto traduzido viraria um atalho para o rótulo. Essa fonte **não é composta de mensagens reais brasileiras**: as mensagens foram traduzidas por máquina, parecem inventadas (`fakeprize.com`, número 555) e o dataset de origem ainda precisa ser identificado, com a licença. Ela não se encaixa diretamente em "reais" nem em "simuladas" da 4.3.1, por isso tem `fonte` própria e precisa ser declarada separadamente.
 
 > **Nota metodológica (Dataset_5971):** são SMS reais, mas em inglês. Entra **só no treino**, depois do split, pelo mesmo motivo das sintéticas: val e teste continuam 100% PT-BR, e os resultados seguem sendo sobre o domínio do TCC. As mensagens rotuladas `spam` (propaganda) ficam de fora — o `MAPA_ROTULOS` as levaria para a classe positiva, ensinando que anúncio é golpe. O few-shot do notebook 04 é sorteado só entre as mensagens PT-BR do treino.
 
@@ -486,6 +489,7 @@ O documento atual é o **projeto de pesquisa do TCC I** ("Projeto de Pesquisa ap
 | 4 | Descrever **LLaMA**, a **quantização 4-bit** e os **baselines clássicos** | 4.3.3 | A seção só tem uma frase genérica e a imagem do BERTimbau; NB e SVM aparecem apenas na 4.4.3 |
 | 5 | Substituir "Foram utilizados **X** datasets" pelas fontes reais, com licença e papel de cada uma | 4.3.1 | Placeholder ainda no texto; definir também o papel do Smishtank |
 | 5b | Declarar a **proporção coletada/simulada** do corpus e a limitação de validade externa decorrente | 4.4.2 e Limitações | A 4.3.1/4.4.2 autorizam mensagens simuladas, mas o quanto foi simulado é resultado, não detalhe operacional |
+| 5c | Declarar a **fonte traduzida** (dataset, licença, critério de seleção das 22 mensagens) e, se o rascunho de legítimas simuladas for aprovado, que ele foi **redigido com IA generativa e revisado manualmente** | 4.3.1, 4.4.2 e Limitações | A traduzida não se encaixa em "reais" nem em "simuladas"; e a autoria das simuladas faz parte da proveniência do corpus |
 | 6 | Registrar a **ordem augmentation/split** e a regra anti-vazamento | 4.4.2 | Decisão metodológica central; precisa estar declarada, não só implementada |
 | 7 | Converter a seção 5 de expectativa para **resultados reais** | 5 | Está inteira no futuro ("pretende-se demonstrar", "espera-se") |
 

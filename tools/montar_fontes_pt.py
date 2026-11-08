@@ -4,8 +4,15 @@ Monta os CSVs de data/raw/ a partir da pasta tccdados/.
 Saídas (em tccdados/raw/, para upload em data/raw/ no Drive):
     mensagens_coletadas.csv   fonte 'coletada' do notebook 01
     mensagens_simuladas.csv   fonte 'simulada' do notebook 01
+    mensagens_traduzidas.csv  fonte 'traduzida' do notebook 01
     sementes_pt.csv           sementes de smishing do notebook 00
-    kaggle_traduzido.csv      só validação de pipeline — NÃO entra em FONTES_PT
+    kaggle_traduzido.csv      as 60 mensagens traduzidas, sem filtro — NÃO entra
+                              em FONTES_PT (o subconjunto aprovado é o arquivo
+                              mensagens_traduzidas.csv)
+
+Entrada opcional:
+    rascunho_legitimas_simuladas.csv   legítimas simuladas em revisão. Só as
+    linhas com aprovada=1 entram em mensagens_simuladas.csv.
 
 Decisões de curadoria:
   - Mensagens de ligação (canal='ligacao') ficam de fora: não são smishing.
@@ -15,6 +22,13 @@ Decisões de curadoria:
     isso, o regex de URL do preprocessing não o reconhece e a palavra 'url'
     vira um marcador exclusivo das sintéticas de golpe.
   - Linhas com rótulo 'suspeita' ficam de fora até serem rotuladas.
+  - A id 62 (código de verificação do WhatsApp) entra como legítima, e não
+    como fraude, que é o rótulo de mensagens_rows.csv (ver ROTULO_POR_ID_COLETADO).
+  - Das 60 mensagens traduzidas, entram 22: as de SMS e WhatsApp sem marca
+    estrangeira (rupia, dólar, Bengaluru, EPFO, IPL). E-mail está fora do escopo.
+    Entram 15 legítimas E 7 de smishing: se só as legítimas entrassem, o estilo
+    de texto traduzido viraria um atalho para o rótulo. A id 3 é tradução direta
+    de uma mensagem dos datasets em inglês e fica de fora.
 
 Uso:
     python tools/montar_fontes_pt.py <pasta tccdados>
@@ -61,7 +75,30 @@ DOMINIO_PRINT = {
 IDS_COLETADOS = {'62', '63', '65', '68', '70'}
 IDS_KAGGLE = {str(i) for i in range(1, 61)}
 
-TIPO_POR_ID_COLETADO = {'62': 'outro', '65': 'outro'}
+TIPO_POR_ID_COLETADO = {'65': 'outro'}
+
+# Rótulos revistos depois da coleta (decisão de 2026-11-08). A id 62 é o SMS
+# real com o código de verificação do WhatsApp, sem link nem pedido: estava
+# como fraude porque chegou durante uma tentativa de golpe, mas rotulada assim
+# ensina que o código legítimo do WhatsApp é golpe.
+ROTULO_POR_ID_COLETADO = {'62': 'legitima'}
+
+# mensagens_rows.csv: subconjunto traduzido que entra no corpus (ver curadoria)
+IDS_TRADUZIDAS_LEGITIMAS = {
+    '31', '32', '34', '35', '37', '42', '43', '45',
+    '47', '48', '50', '51', '52', '54', '55',
+}
+TIPO_TRADUZIDA_SMISHING = {
+    '2': 'premio', '8': 'credito', '21': 'entrega', '25': 'credito',
+    '26': 'outro', '28': 'outro', '29': 'banco',
+}
+IDS_TRADUZIDAS = IDS_TRADUZIDAS_LEGITIMAS | set(TIPO_TRADUZIDA_SMISHING)
+
+# Vírgulas que a tradução automática trocou por ponto
+CORRECOES_TRADUCAO = {
+    '34': ('maravilhoso. repleto', 'maravilhoso, repleto'),
+    '51': ('sexta-feira. às 13h', 'sexta-feira, às 13h'),
+}
 
 
 def rotulo(valor):
@@ -69,7 +106,9 @@ def rotulo(valor):
 
 
 def ler(caminho):
-    with open(caminho, encoding='utf-8') as f:
+    # utf-8-sig: planilhas podem salvar o CSV com BOM, o que estragaria o nome
+    # da primeira coluna
+    with open(caminho, encoding='utf-8-sig') as f:
         return list(csv.DictReader(f))
 
 
@@ -79,6 +118,34 @@ def escrever(caminho, linhas, colunas):
         w.writeheader()
         w.writerows(linhas)
     print(f'{os.path.basename(caminho)}: {len(linhas)} linhas')
+
+
+def traduzida(r):
+    """Linha de mensagens_traduzidas.csv a partir de mensagens_rows.csv."""
+    # split/join também tira o espaço duplo deixado pelos valores perdidos na tradução
+    texto = ' '.join(r['texto'].split())
+    if r['id'] in CORRECOES_TRADUCAO:
+        antigo, novo = CORRECOES_TRADUCAO[r['id']]
+        assert antigo in texto, f"correção da id {r['id']} não se aplica"
+        texto = texto.replace(antigo, novo)
+    return {
+        'mensagem': texto,
+        'rotulo': rotulo(r['classificacao']),
+        'tipo_golpe': TIPO_TRADUZIDA_SMISHING.get(r['id'], 'nao_aplicavel'),
+        'id_original': f"kaggle_{r['id']}",
+        'canal': r['fonte'].lower(),
+    }
+
+
+def legitimas_aprovadas(pasta, colunas):
+    """Legítimas simuladas do rascunho com aprovada=1. Vazia se não houver."""
+    caminho = os.path.join(pasta, 'rascunho_legitimas_simuladas.csv')
+    if not os.path.isfile(caminho):
+        return []
+    rascunho = ler(caminho)
+    aprovadas = [r for r in rascunho if r['aprovada'].strip() == '1']
+    print(f'rascunho de legítimas: {len(aprovadas)} aprovadas de {len(rascunho)}')
+    return [{c: r[c] for c in colunas} for r in aprovadas]
 
 
 def main(pasta):
@@ -103,9 +170,9 @@ def main(pasta):
             'canal': r['canal'],
         })
 
-    coletadas, kaggle = [], []
+    coletadas, kaggle, traduzidas = [], [], []
     for r in ler(os.path.join(pasta, 'mensagens_rows.csv')):
-        rot = rotulo(r['classificacao'])
+        rot = rotulo(ROTULO_POR_ID_COLETADO.get(r['id'], r['classificacao']))
         if rot is None:
             print(f"  [fora] id {r['id']}: rótulo '{r['classificacao']}'")
             continue
@@ -120,10 +187,14 @@ def main(pasta):
             })
         elif r['id'] in IDS_KAGGLE:
             kaggle.append({'texto': r['texto'], 'rotulo': rot, 'tipo_golpe': tipo})
+            if r['id'] in IDS_TRADUZIDAS:
+                traduzidas.append(traduzida(r))
 
     colunas = ['mensagem', 'rotulo', 'tipo_golpe', 'id_original', 'canal']
+    simuladas += legitimas_aprovadas(pasta, colunas)
     escrever(os.path.join(saida, 'mensagens_simuladas.csv'), simuladas, colunas)
     escrever(os.path.join(saida, 'mensagens_coletadas.csv'), coletadas, colunas)
+    escrever(os.path.join(saida, 'mensagens_traduzidas.csv'), traduzidas, colunas)
     escrever(os.path.join(saida, 'kaggle_traduzido.csv'), kaggle,
              ['texto', 'rotulo', 'tipo_golpe'])
 
