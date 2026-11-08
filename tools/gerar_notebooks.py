@@ -1172,6 +1172,17 @@ y_teste  = teste[CFG.COL_ROTULO].map(CFG.LABEL2ID).values
 
 print(f'\\nTreino: {len(treino)}  |  Val: {len(val)}  |  Teste: {len(teste)}')
 print(f'Positivos no treino: {y_treino.sum()} / {len(y_treino)}')
+print(f"PT-BR no treino: {(treino['idioma'] == 'pt').sum()} de {len(treino)}")
+
+# Com poucas mensagens por classe na validação, F2, recall e especificidade só
+# mudam em degraus de uma mensagem: as curvas da seção 4, o early stopping e o
+# limiar da seção 5 podem ficar parados sem que isso diga algo sobre o modelo.
+N_VAL = val[CFG.COL_ROTULO].value_counts().reindex(CFG.CLASSES, fill_value=0)
+print(f'Validação por classe: {N_VAL.to_dict()}')
+if N_VAL.min() < 10:
+    print(f'[AVISO] a classe menor da validação tem {N_VAL.min()} mensagens: cada uma '
+          f'vale {1 / max(N_VAL.min(), 1):.0%} de recall ou de especificidade. Leia as '
+          'curvas e o limiar com essa resolução em mente.')
 """),
 md("## 2. Tokenização e dataset"),
 code("""
@@ -1232,6 +1243,7 @@ pesos = torch.tensor(len(y_treino) / (2 * contagem), dtype=torch.float32).to('cu
 print(f'Contagem por classe: {contagem}  →  pesos: {pesos.tolist()}')
 
 POS_ID = CFG.LABEL2ID[CFG.CLASSE_POSITIVA]
+NEG_ID = CFG.LABEL2ID[CFG.CLASSE_NEGATIVA]
 
 
 def compute_metrics(eval_pred):
@@ -1242,6 +1254,10 @@ def compute_metrics(eval_pred):
         'f1':        fbeta_score(rotulos, pred, beta=1, pos_label=POS_ID, zero_division=0),
         'recall':    recall_score(rotulos, pred, pos_label=POS_ID, zero_division=0),
         'precisao':  precision_score(rotulos, pred, pos_label=POS_ID, zero_division=0),
+        # Recall da classe legítima. Com o treino quase todo em inglês, o atalho
+        # "português = golpe" aparece aqui primeiro: o recall continua alto e a
+        # especificidade cai.
+        'especificidade': recall_score(rotulos, pred, pos_label=NEG_ID, zero_division=0),
     }
 
 
@@ -1304,31 +1320,64 @@ print(f'Retomando de checkpoint: {retomar}')
 resultado = trainer.train(resume_from_checkpoint=retomar)
 print(f"\\nLoss final de treino: {resultado.metrics.get('train_loss', float('nan')):.4f}")
 """),
+md("""
+### Como ler as curvas
+
+- A **loss de treino** é quase toda do Dataset_5971, em inglês. Ela cair até perto
+  de zero mostra que o modelo aprendeu o inglês, não que acerta em português.
+- A **validação** é só PT-BR, e a única medida do domínio do TCC durante o
+  treino. Com poucas mensagens, as métricas andam em degraus (ver o aviso da
+  seção 1) e uma linha reta pode ser só falta de resolução.
+- **Especificidade baixa com recall alto** é o sinal do atalho de idioma: o modelo
+  marca qualquer mensagem em português como golpe.
+- A linha tracejada vertical marca o checkpoint escolhido. Em caso de empate no
+  F2, o `Trainer` mantém o mais antigo, e o early stopping para depois de duas
+  épocas sem melhora estrita.
+"""),
 code("""
 # Curvas de aprendizado
 historico = trainer.state.log_history
 logs_treino = [e for e in historico if 'loss' in e and 'eval_loss' not in e]
 logs_val    = [e for e in historico if 'eval_loss' in e]
 
+# Época e passo do checkpoint escolhido por load_best_model_at_end
+melhor = trainer.state.best_model_checkpoint
+passo_melhor = int(melhor.rsplit('-', 1)[-1]) if melhor else None
+epoca_melhor = next((e['epoch'] for e in logs_val if e['step'] == passo_melhor), None)
+print(f'Épocas executadas: {trainer.state.epoch:.0f} de {EPOCAS}')
+if epoca_melhor is not None:
+    print(f'Checkpoint escolhido: época {epoca_melhor:.0f} (passo {passo_melhor}), '
+          f'F2 na validação = {trainer.state.best_metric:.4f}')
+
 if logs_treino and logs_val:
+    frac_pt = (treino['idioma'] == 'pt').mean()
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
     axes[0].plot([e['step'] for e in logs_treino], [e['loss'] for e in logs_treino],
-                 marker='.', label='Treino')
+                 marker='.', label=f'Treino ({frac_pt:.1%} PT-BR)')
     axes[0].plot([e['step'] for e in logs_val], [e['eval_loss'] for e in logs_val],
-                 marker='o', label='Validação')
-    axes[0].set_title('Loss')
+                 marker='o', label=f'Validação (PT-BR, n={len(val)})')
+    axes[0].set_title('Loss ponderada')
     axes[0].set_xlabel('Passo')
+    if passo_melhor is not None:
+        axes[0].axvline(passo_melhor, color='gray', linestyle='--', linewidth=1)
     axes[0].legend()
 
     epocas = [e['epoch'] for e in logs_val]
-    for chave, estilo in [('eval_f2', '-o'), ('eval_recall', '--s'), ('eval_precisao', ':^')]:
+    series = [('eval_f2', '-o'), ('eval_recall', '--s'), ('eval_precisao', ':^'),
+              ('eval_especificidade', '-.d')]
+    for chave, estilo in series:
         if chave in logs_val[0]:
-            axes[1].plot(epocas, [e[chave] for e in logs_val], estilo, label=chave.replace('eval_', ''))
-    axes[1].set_title('Métricas na validação')
+            axes[1].plot(epocas, [e[chave] for e in logs_val], estilo,
+                         label=chave.replace('eval_', ''))
+    if epoca_melhor is not None:
+        axes[1].axvline(epoca_melhor, color='gray', linestyle='--', linewidth=1)
+    resumo_val = ', '.join(f'{n} {c}' for c, n in N_VAL.items())
+    axes[1].set_title(f'Métricas na validação ({resumo_val})')
     axes[1].set_xlabel('Época')
-    axes[1].set_ylim(0, 1)
-    axes[1].legend()
+    axes[1].set_xticks(range(1, int(round(max(epocas))) + 1))
+    axes[1].set_ylim(-0.05, 1.05)
+    axes[1].legend(loc='best')
 
     plt.suptitle('BERTimbau — curvas de aprendizado')
     plt.tight_layout()
