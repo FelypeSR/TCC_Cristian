@@ -1572,17 +1572,21 @@ for i, linha in candidatos.iterrows():
 """),
 code("""
 # ── Anotação: índice do candidato → lista de critérios presentes ──────────
-# Feita à mão em 2026-11-08 sobre os candidatos impressos acima. Regras: marca-se
-# o critério cuja descrição se aplica literalmente ao texto; "ligue para um
-# número" conta no 3; empresa sem nome não conta no 1; ameaça de corte ou de
-# cancelamento conta no 6. Legítima sem nenhum critério fica com lista vazia.
+# Refeita em 2026-11-08, depois que a id 68 passou a smishing e o split mudou.
+# Regras: marca-se o critério cuja descrição se aplica literalmente ao texto;
+# "ligue para um número" e contato por WhatsApp num número contam no 3; empresa
+# sem nome (ou nome que não identifica empresa conhecida) não conta no 1; o 2
+# exige prazo ou "agora" explícito; ameaça de corte, cancelamento ou
+# interrupção que depende de o destinatário agir conta no 6, mesmo em
+# legítima, mas aviso de manutenção programada não. Legítima sem nenhum
+# critério fica com lista vazia.
 ANOTACOES = {
-    0: [2, 7],      # falso filho pedindo pix urgente
-    1: [1, 2, 3],   # "BANCO:", cancele agora, link
-    2: [3, 4],      # upgrade grátis do chip, ligue para a operadora
-    3: [],          # almoço da equipe
-    4: [],          # comprar leite e pão
-    5: [],          # atraso no trânsito
+    0: [3, 4],      # "gerente na PG": salário irreal, contato por número no WhatsApp
+    1: [1, 3, 6],   # "RECEITA FEDERAL:", CPF será cancelado, link
+    2: [2, 3, 4],   # restituição do IR, resgate até hoje, link
+    3: [6],         # renovar o seguro para evitar interrupção da cobertura
+    4: [],          # interrupção de energia para manutenção
+    5: [],          # reunião no escritório
 }
 
 # Início do texto de cada candidato no momento da anotação. Se o corpus ou o
@@ -1591,12 +1595,12 @@ ANOTACOES = {
 # para logo abaixo; nesse caso, anote os candidatos novos e atualize os dois
 # dicionários.
 INICIO_ANOTADO = {
-    0: 'Mae, meu celular quebrou',
-    1: 'BANCO: Detectamos um PIX',
-    2: 'Upgrade GRÁTIS para seu cartão SIM',
-    3: 'O almoço da equipe',
-    4: 'Você poderia comprar leite',
-    5: 'Vou me atrasar 15 minutos',
+    0: 'Olá, sou gerente na PG',
+    1: 'RECEITA FEDERAL: Seu CPF',
+    2: 'Voce tem restituicao do IR',
+    3: 'Lembrete: Renove o seguro',
+    4: 'Haverá interrupção de energia',
+    5: 'Olá. Você vem ao escritório',
 }
 
 # ── Verificação da anotação ───────────────────────────────────────────────

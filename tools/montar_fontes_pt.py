@@ -23,7 +23,9 @@ Decisões de curadoria:
     vira um marcador exclusivo das sintéticas de golpe.
   - Linhas com rótulo 'suspeita' ficam de fora até serem rotuladas.
   - A id 62 (código de verificação do WhatsApp) entra como legítima, e não
-    como fraude, que é o rótulo de mensagens_rows.csv (ver ROTULO_POR_ID_COLETADO).
+    como fraude, que é o rótulo de mensagens_rows.csv; a id 68 (Santander,
+    renegociação pelo IR) entra como smishing, e não como legítima (ver
+    ROTULO_POR_ID_COLETADO).
   - Das 60 mensagens traduzidas, entram 22: as de SMS e WhatsApp sem marca
     estrangeira (rupia, dólar, Bengaluru, EPFO, IPL). E-mail está fora do escopo.
     Entram 15 legítimas E 7 de smishing: se só as legítimas entrassem, o estilo
@@ -75,13 +77,18 @@ DOMINIO_PRINT = {
 IDS_COLETADOS = {'62', '63', '65', '68', '70'}
 IDS_KAGGLE = {str(i) for i in range(1, 61)}
 
-TIPO_POR_ID_COLETADO = {'65': 'outro'}
+TIPO_POR_ID_COLETADO = {'65': 'outro', '68': 'banco'}
 
-# Rótulos revistos depois da coleta (decisão de 2026-11-08). A id 62 é o SMS
-# real com o código de verificação do WhatsApp, sem link nem pedido: estava
-# como fraude porque chegou durante uma tentativa de golpe, mas rotulada assim
-# ensina que o código legítimo do WhatsApp é golpe.
-ROTULO_POR_ID_COLETADO = {'62': 'legitima'}
+# Rótulos revistos depois da coleta (decisões de 2026-11-08).
+#   62: SMS real com o código de verificação do WhatsApp, sem link nem pedido.
+#       Estava como fraude porque chegou durante uma tentativa de golpe, mas
+#       rotulada assim ensina que o código legítimo do WhatsApp é golpe.
+#   68: "SANTANDER" oferecendo renegociação de dívidas pela "nova regra do IR
+#       2026", com link. Estava como legítima, mas com tipo_golpe=smishing na
+#       própria linha. Bancos não costumam mandar mensagem sobre IR com link;
+#       o domínio oficial no texto não basta, porque o remetente não foi
+#       registrado.
+ROTULO_POR_ID_COLETADO = {'62': 'legitima', '68': 'smishing'}
 
 # mensagens_rows.csv: subconjunto traduzido que entra no corpus (ver curadoria)
 IDS_TRADUZIDAS_LEGITIMAS = {
