@@ -19,6 +19,8 @@ Estudo comparativo da aplicabilidade de modelos de linguagem natural na detecç�
 
 > **Coerência com a monografia.** Este documento implementa a metodologia descrita nas seções 4.3 e 4.4 do TCC. Alguns pontos aqui **exigem edição correspondente no texto** da monografia — todos estão listados na seção [Ajustes necessários no texto do TCC](#ajustes-necessários-no-texto-do-tcc), no final. Implementar sem fazer esses ajustes cria divergência entre o código e o documento aprovado.
 
+> **Decisões em aberto.** A primeira rodada completa (01 a 05, novembro de 2026) deixou quatro decisões de método sem resposta, listadas em [Decisões de método em aberto](#decisões-de-método-em-aberto). Os resultados em `results/` usam a regra atual em todas elas.
+
 ---
 
 ## Estrutura do Projeto
@@ -474,6 +476,19 @@ Implementação: `confusion_matrix`, `classification_report`, `ConfusionMatrixDi
 > A coluna `tipo_golpe` é o que dá entrega concreta ao objetivo específico nº 1 ("Mapear os principais tipos de golpes virtuais direcionados a idosos no Brasil"). Sem ela, esse objetivo fica apenas no levantamento bibliográfico, sem contrapartida nos resultados.
 
 ---
+
+## Decisões de método em aberto
+
+Saíram da primeira execução completa dos notebooks 01 a 05 (8 e 9/11/2026), sobre o corpus PT-BR de 48 mensagens. O teste tem 8 mensagens: 5 de smishing e 3 legítimas. Nenhuma das mudanças abaixo foi aplicada, e os números de `results/` seguem a regra atual em todas. Qualquer uma delas que mude o código exige rodar de novo os notebooks afetados e, se a decisão for tomada depois de ver o teste, declarar isso na 4.4.4.
+
+Resultado da rodada, para referência: Llama 8/8 (F2 1,00), SVM 7/8 (F2 0,83), Naive Bayes 6/8 (F2 0,65), BERTimbau 4/8 (F2 0,24). Nenhum falso positivo. No McNemar com correção de Holm, nenhum par é significativo; com 8 mensagens, só um placar de 8 a 0 entre os pares discordantes ficaria abaixo do primeiro alfa (0,0083).
+
+| # | Decisão | O que a rodada mostrou | Opções e consequências |
+|---|---|---|---|
+| D1 | **Desempate do limiar** em `evaluation.calibrar_limiar` | Com 8 mensagens de validação, vários limiares empatam no F2 máximo, e o `argmax` fica com o menor deles, que é exatamente a menor nota de smishing da validação, sem margem. Naive Bayes e BERTimbau têm AUC 1,00 no teste (todo golpe com nota acima de toda legítima) e mesmo assim deixam passar 2 e 4 dos 5 golpes; o limiar do BERTimbau ficou entre 0,9972 e 0,9991. O limiar do Llama (2/7) tem a mesma origem. A regra atual contradiz a justificativa do F2, que é priorizar o recall | (a) Manter e declarar a fragilidade. (b) Usar o ponto médio do intervalo empatado, que dá o mesmo F2 na validação. A opção (b) exige rodar 02, 03, 04 e 05 de novo e declarar que a regra foi revista depois da primeira execução |
+| D2 | **Critérios marcados pelo Llama** | O rótulo acertou 8/8, mas os critérios divergem da leitura literal das mensagens: o 5 (pedido de dados) aparece em 4 dos 5 golpes, e nenhum pede dado; o 7 (emergência familiar) não aparece em "Pai, meu celular quebrou…"; o 3 (link ou ação) falta em duas mensagens com link e aparece numa sem link. O prompt escolhido foi o few-shot, cujos exemplos não têm o critério 5. Na prática, o rótulo equivale a "achou pelo menos um critério" | Anotar à mão os critérios dos golpes do teste e medir a concordância por critério; revisar a descrição do critério 5, que lista palavras (CPF, PIX) às quais o modelo parece reagir mesmo sem pedido; reportar como limitação da explicabilidade, que é a promessa da rubrica (item 11) |
+| D3 | **Faixas de risco** em `config.FAIXAS_RISCO` | "Baixo" vai até 0,34 (até 2 de 7 critérios). Todos os golpes do teste saíram "médio". Um golpe com 2 critérios, como o primeiro exemplo do few-shot, sairia com risco "baixo" e, ao mesmo tempo, rótulo smishing pelo limiar binário | Alinhar as faixas ao limiar (todo smishing pelo menos "médio") ou justificar na 4.4.5 por que nível de risco e rótulo são independentes |
+| D4 | **Rodar ou não o notebook 00** (augmentation) | Nunca rodou. Gera só smishing (cerca de 4 variações por semente, 23 sementes). O treino PT já tem 20 golpes para 12 legítimas, e o Dataset_5971, em inglês, é 91% legítimo: mais golpes em PT reforçam o atalho idioma → rótulo. As sintéticas também entram no sorteio do few-shot do 04 | Rodar só junto com a revisão do rascunho de 80 legítimas simuladas (fora do repositório, coluna `aprovada`), para as duas classes crescerem juntas. Depois, rodar 01 a 05 de novo e refazer a anotação do few-shot |
 
 ## Ajustes necessários no texto do TCC
 
